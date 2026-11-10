@@ -1,28 +1,29 @@
 model {
-  
-  beta0 ~ dnorm(0, 1)  # Prior for intercept on survival
-  alpha ~ dnorm(0, 1)  # contant recapture probability
-  # for (t in 1:T) {        # Time-specific recapture probabilities
-  #   alpha[t] ~ dnorm(0, 1)
-  # }
-  
-  for (k in 1:K) {        # Priors for covariate effects on survival
-    beta[k] ~ dnorm(0, 1)
+
+  # -- we'll start with defining priors - what we think we know about survival and recapture probability
+  # -- we don't know much, and also the sample size is small, so we will use flat priors (dunif())
+
+  for (t in 1:(T-1)) {
+    phi[t] ~ dunif(0, 1) # fully flat prior, no pull toward any value
+  }
+  for (t in 1:T) {
+    p0[t] ~ dunif(0, 1)
+    p[t] <- p0[t] * effort[t] # forces p to exactly 0 in zero-effort years
   }
   
+  # -- then, for every bird, calculate the probability of the recapture history
+
   for (i in 1:N) {
-    z[i, first[i]] <- 1  # Known to be alive at first capture
+  
+    z[i, first[i]] <- 1
     
     for (t in (first[i] + 1):T) {
-      logit(phi[i, t - 1]) <- beta0 + inprod(beta[1:K], X[t - 1, 1:K])
-      z[i, t] ~ dbern(z[i, t - 1] * phi[i, t - 1])
-    }
     
-    for (t in first[i]:T) {
-      # logit(p[i, t]) <- alpha[t] # time dependent recapture probability
-      logit(p[i, t]) <- alpha # constant recapture probability
+      z[i, t] ~ dbern(z[i, t - 1] * phi[t - 1])
 
-      y[i, t] ~ dbern(z[i, t] * p[i, t])
+    }
+    for (t in first[i]:T) {
+      y[i, t] ~ dbern(z[i, t] * p[t])
     }
   }
 }
